@@ -1,11 +1,24 @@
 # Summary
 
-This data collects the flat and bias frames for the i filter, 
-ccd number 3 **only**. Observations were made on the night of 
-19. 03. 2021. by the DEEP survey using DECam.
+This repository serves as a recipe describing how to process
+DECam raw calibration data and create master calibration
+data products using Vera C. Rubin Science Pipelines. Master
+calibration products are then exported so that they can be
+used in other repositories to calibrate raw science data
+from the same night. 
 
-The same data can be identified and downloaded again by invoking
-the `scripts/download_data.py` script:
+Due to the size of the DECam calibration data at any given
+night the repository provides a trimmed down version of the
+data to facilitate ease of use and speed of processing. 
+
+The data in the `trimmedRawData` collects  **only** the flat
+and bias frames for the `N4` detector, `i` filter that were
+made on the night of 19/03/2021. by the DEEP survey using 
+DECam.
+
+The original data can be identified, and downloaded again by
+invoking the `scripts/download_data.py` from the top-level 
+directory of this repository:
 
 ```bash
 git clone https://github.com/dirac-institute/kbmod_210318_master_calibs
@@ -20,13 +33,19 @@ python scripts/download_data.py \
 Trimming the data involves setting the data of all but the
 selected detectors to zero and creating Astropy's `CompImageHDU`
 objects to compress them and reduce the total size of the dataset.
-For example, following the setup before: 
+For example, after downloading the data running the following 
+commands from the top-level directory re-creates the provided 
+trimmed data: 
 
 ```bash
 cp -r rawData trimmedRawData
-scripts/trim_ccds.py rawTrimmedData/210318/calib/flat 3 --verbose --overwrite
-scripts/trim_ccds.py rawTrimmedData/210318/calib/bias 3 --verbose --overwrite
+scripts/trim_ccds.py rawTrimmedData/210318/calib/flat N4 --verbose --overwrite
+scripts/trim_ccds.py rawTrimmedData/210318/calib/bias N4 --verbose --overwrite
 ```
+
+For convenience these commands were collected in a script
+`scripts/download_and_trim_data.sh` which will create both
+the full sized 
 
 To build and export the master calibration_files required 
 for processing of science data run the `create_master_calibs.sh`
@@ -36,9 +55,38 @@ script:
 scripts/create_master_calibs.sh 
 ```
 
-The created `calibs_20210318` directory will contain
-the master calibration files as packaged in the (kbmod_210318_master_calibs)[]
+The script assumes that the trimmed dataset was downloaded
+alongside cloning the repository using GIT LFS. The same
+script can be used to process the full raw data products
+as well, but minor changes are required. 
+
+To produce master calibration files for the entire focal
+plane using the script:
+
+* point the processing paths in the script to the `rawData` 
+directory instead of the `trimmedRawData` directory
+* remove the targeted processing of only the `N4` 
+detector by removing the `-d "detector=35` flags.
+
+To adjust how many processing threads to use, adjust
+the value given in the `-j` flag.
+
+Directory `masterCalibsRepo` is the Rubin Data Butler
+Repository. The created `calibs_20210318` directory will
+contain the exported master calibration files usable in further
+processing. If the processing was applied on the trimmed 
+dataset the `calibs_20210318` directory will contain the
+same data as packaged in the (kbmod_210318_master_calibs)[]
 repository.
+
+If the processing script was used to create full focal plane
+master calibration files, they can also be trimmed using the
+same `trim_ccds.py` script as before. Additionally, in this
+situation, it is also neccessary to trim the exported YAML
+file. 
+
+
+```
 
 
 # Contents

@@ -12,9 +12,11 @@ import yaml
 #                         Utilities
 ############################################################
 class HDULookup:
-    """A map between the ``detector`` and ``full_name`` values and
-    provides easy translation between the two. 
-
+    """A map between the ``detector`` number and ``full_name``
+    values and provides easy(ier) translation between the two.
+    
+    Powers the functionality where the detector IDs can be suplied
+    as an integer detector ID or as a string name ID.
     Ideally this would also be used to track filters, and be a full ID
     resolver, but it's too nuanced and hard to do for a simple script
     so I gave up. 
@@ -40,7 +42,7 @@ class HDULookup:
         else:
             self.idx_name = {i:n for i,n in idx_name_map}
 
-        self.name_idx = {n: i for n,i in self.idx_name.items()}
+        self.name_idx = {n: i for i,n in self.idx_name.items()}
         self.types = hdutypes
 
     @classmethod
@@ -112,7 +114,46 @@ class HDULookup:
             return self.idx_name[val]
         except KeyError:
             return self.name_idx[val]
-            
+
+    def to_names(self, ids):
+        """Convert iterable of IDs into the detector name."""
+        names = []
+        for i in ids:
+            # assume it's an logical id, if it isn't it must be a name
+            # else, translate and append
+            is_name = False
+            try:
+                tmpi = int(i)
+            except ValueError:
+                is_name = True
+            else:
+                # id is logical indexm, translate to name
+                names.append(self[i])
+
+            # id is a name already, if exists in the map store it
+            # else raise Key Error
+            if is_name and i in self.name_idx:
+                names.append(i)
+            else:
+                raise KeyError(f"No ID {i} in the detector ID-name map.")
+
+        return names
+
+    def to_ids(self, ids):
+        """Convert iterable of IDs into logical detector index."""
+        idxs = []
+        for i in ids:
+            # assume it's an logical id, check it exists in the map and append
+            # otherwise it's a name, so translate and append 
+            try:
+                tmpi = int(i)
+            except ValueError:
+                idxs.append(self[i])
+            else:
+                if i in self.idx_name:
+                    idxs.append(i)
+        return idxs
+
     def get_imagelike_idxs(self):
         """Return all image-like logical detector indices."""
         idxs = []
@@ -140,10 +181,9 @@ def trim_exported_yaml(path, idxs, fullnames, filters=None, writeto=None):
     path : `str`
         Path to the ``export.yaml`` file to trim.
     idxs : `list`
-        List of ``detector`` names which will be exported. 
+        List of ``detector`` IDs which will be exported. 
         On the example of DECam, these are integer detector
-        indices 1-62, for other instruments these indices 
-        could be string names.
+        indices 1-62.
     fullnames : `list`
         List of ``full_names`` of the detectors. On the 
         example of DECam, these are ``S`` and ``N`` strings
@@ -345,11 +385,16 @@ def compress_image(path, protected, **kwargs):
         #files = path
 
     hdul = fits.open(path)
+
+    # be careful about discerning the name of the detectors from its 
+    # associated logical id and its index in the HDUList object
     hdumap = HDULookup.fromDECamHDUList(hdul)
-    
-    for idx in hdumap.get_imagelike_idxs():
-        # note hdu = hdul[idx]
-        if idx not in protected:
+    protected_names = hdumap.to_names(protected)
+    protected_idxs = [hdul.index_of(idx) for idx in protected_names]
+
+    imagelike_idxs = [hdul.index_of(n) for n in hdumap.get_imagelike_names()]
+    for idx in imagelike_idxs:
+        if idx not in protected_idxs:
             hdul[idx].data[:] = 0
 
         # this compresses the protected data too, it 
@@ -381,7 +426,7 @@ def compress_images(loadfrom, writeto, protectHDUs, verbose=False, overwrite=Fal
         passed on, if the selected compression strategy is ``astropy``. 
     """
     if os.path.isfile(loadfrom):
-        files = [path, ]
+        files = [loadfrom, ]
     elif os.path.isdir(loadfrom):
         files = glob.glob(f"{loadfrom}/*.fits*")
     else:
@@ -408,7 +453,7 @@ def compress_images(loadfrom, writeto, protectHDUs, verbose=False, overwrite=Fal
 ############################################################
 #                         Main
 ############################################################
-def main(path, hdus, writeto=False, verbose=False, overwrite=False, **kwargs):
+def main(path, hdus, writeto=False, verbose=False, overwrite=False, trimYaml=False, **kwargs):
     """Zeroes out all but the selected HDU(s) and, optionally,
     compresses the files using fpack or Astropy's CompHDU.
 
@@ -438,6 +483,18 @@ def main(path, hdus, writeto=False, verbose=False, overwrite=False, **kwargs):
         **kwargs
     )
 
+#    TODO: Fix this function, it's operational
+#    but needs to resolve these parameters via user input
+#    hdumap, but that requires refactoring the compress_images
+#    if trimYaml:
+#        trim_exported_yaml(
+#            trimYaml, 
+#            hdus,
+#            fullnames,
+#            filters=None,
+#            writeto=None
+#        )
+
     if res is not None:
         return new_fits
                       
@@ -460,7 +517,7 @@ if __name__=="__main__":
     )
     parser.add_argument(
         "hdus",
-        help="Comma separated list of zero based indexes of HDUs to preserve."
+        help="Comma separated list of detector IDs (their numerical or string ID) to preserve."
     )
 
     ##########
@@ -472,9 +529,9 @@ if __name__=="__main__":
         nargs="?", default=None, dest="writeto"
     )
     parser.add_argument(
-        "--trim-exported-calibs",
-        help="Path to a directory containing the YAML with exported DECam calibrations.",
-        nargs="?", default=False, dest="writeto"
+        "--trim-exported-yaml",
+        help="Path to the exported YAML file.",
+        nargs="?", default=False, dest="exportedYaml"
     )
     parser.add_argument(
         "--strategy",
@@ -519,7 +576,7 @@ if __name__=="__main__":
                 val = v
             kwargs[key] = val
 
-    hdus = [int(i) for i in aargs.hdus.split(",")]
+    hdus = [i for i in aargs.hdus.split(",")]
 
     main(
         path=aargs.path,
@@ -527,5 +584,6 @@ if __name__=="__main__":
         writeto=aargs.writeto,
         verbose=aargs.verbose,
         overwrite=aargs.overwrite,
+        trimYaml=aargs.exportedYaml,
         **kwargs
     )

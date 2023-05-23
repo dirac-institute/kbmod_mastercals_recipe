@@ -8,5 +8,5 @@ python scripts/download_data.py \
 
 cp -r rawData trimmedRawData
 
-scripts/trim_ccds.py trimmedRawData/210318/calib/flat 3 --verbose --overwrite
-scripts/trim_ccds.py trimmedRawData/210318/calib/bias 3 --verbose --overwrite
+scripts/trim_ccds.py trimmedRawData/210318/calib/flat N4 --verbose --overwrite
+scripts/trim_ccds.py trimmedRawData/210318/calib/bias N4 --verbose --overwrite
