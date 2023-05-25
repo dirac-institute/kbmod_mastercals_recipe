@@ -52,7 +52,7 @@ pipetask run \
 butler certify-calibrations masterCalibsRepo "DECam/calib/flat/master/20210318" "DECam/calib/flat/20210318" "flat" 
 
 # The collection of calibs that contains the certified master flats and biases 
-butler collection-chain dataRepo "DECam/calib/20210318" "DECam/calib/bias/20210318","DECam/calib/flat/20210318"
+butler collection-chain masterCalibsRepo "DECam/calib/20210318" "DECam/calib/bias/20210318","DECam/calib/flat/20210318"
 
 # Export the created calibs 
 butler export-calibs masterCalibsRepo calibs_20210318 "DECam/calib/20210318" > exported_calibrations.log

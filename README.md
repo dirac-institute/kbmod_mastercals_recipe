@@ -85,10 +85,6 @@ same `trim_ccds.py` script as before. Additionally, in this
 situation, it is also neccessary to trim the exported YAML
 file. 
 
-
-```
-
-
 # Contents
 
                           BIAS RAW
